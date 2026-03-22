@@ -1,0 +1,105 @@
+{
+  "observatory": {
+    "name": "OGS / Teide Observatory",
+    "latitude_deg": 28.2994,
+    "longitude_deg": -16.5097,
+    "elevation_m": 2390.0,
+    "timezone": "Europe/Madrid"
+  },
+  "session": {
+    "start_night": "2026-04-02",
+    "end_night": "2026-04-12",
+    "sunset_local": "21:00",
+    "sunrise_local": "07:00",
+    "slot_duration_hours": 2.0,
+    "slot_step_hours": 1.0
+  },
+  "sectors": [
+    {
+      "name": "North",
+      "az_min": 350.0,
+      "az_max": 10.0,
+      "el_min": 60.0,
+      "el_max": 80.0,
+      "hotspot_el": null,
+      "hotspot_az": null,
+      "rising_el_min": null,
+      "enabled": true
+    },
+    {
+      "name": "South",
+      "az_min": 160.0,
+      "az_max": 190.0,
+      "el_min": 60.0,
+      "el_max": 80.0,
+      "hotspot_el": 70.0,
+      "hotspot_az": 170.0,
+      "rising_el_min": null,
+      "enabled": true
+    },
+    {
+      "name": "East",
+      "az_min": 80.0,
+      "az_max": 100.0,
+      "el_min": 60.0,
+      "el_max": 80.0,
+      "hotspot_el": null,
+      "hotspot_az": null,
+      "rising_el_min": 55.0,
+      "enabled": true
+    },
+    {
+      "name": "West",
+      "az_min": 260.0,
+      "az_max": 280.0,
+      "el_min": 60.0,
+      "el_max": 80.0,
+      "hotspot_el": null,
+      "hotspot_az": null,
+      "rising_el_min": null,
+      "enabled": true
+    }
+  ],
+  "magnitude_bins": [
+    {
+      "label": "NGS_BRIGHT",
+      "target_type": "NGS",
+      "vmag_min": -99.0,
+      "vmag_max": 2.0,
+      "required_count": 1,
+      "allow_reuse": false
+    },
+    {
+      "label": "NGS_MEDIUM",
+      "target_type": "NGS",
+      "vmag_min": 2.0,
+      "vmag_max": 4.0,
+      "required_count": 1,
+      "allow_reuse": false
+    },
+    {
+      "label": "NGS_FAINT",
+      "target_type": "NGS",
+      "vmag_min": 4.0,
+      "vmag_max": 5.0,
+      "required_count": 1,
+      "allow_reuse": false
+    },
+    {
+      "label": "LPC",
+      "target_type": "LPC",
+      "vmag_min": 5.0,
+      "vmag_max": 7.0,
+      "required_count": 2,
+      "allow_reuse": false
+    }
+  ],
+  "catalog_source": "vizier",
+  "local_catalog_path": "",
+  "allow_global_reuse": false,
+  "catalog_vmag_limit": 7.5,
+  "catalog_band": "V",
+  "visibility_sample_minutes": 10,
+  "min_dec_filter": -15.0,
+  "max_dec_filter": 70.0
+}
