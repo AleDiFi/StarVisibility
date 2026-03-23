@@ -18,13 +18,26 @@ Scientific assumptions documented here:
 """
 
 import os
+import sys
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Path constants
 # ---------------------------------------------------------------------------
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+def _get_app_root() -> Path:
+    """Return the base directory for runtime-generated files.
+
+    - Source run: repository root (so dev runs behave as before)
+    - Frozen executable (PyInstaller): directory containing the .exe
+      (portable and writable, avoids temp/bundle paths)
+    """
+    if getattr(sys, "frozen", False):  # set by PyInstaller
+        return Path(sys.executable).resolve().parent
+    return Path(__file__).resolve().parent.parent.parent
+
+
+PROJECT_ROOT = _get_app_root()
 CACHE_DIR = PROJECT_ROOT / ".cache"
 LOG_DIR = PROJECT_ROOT / "logs"
 OUTPUT_DIR = PROJECT_ROOT / "output"

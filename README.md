@@ -78,6 +78,51 @@ python app.py --headless --config mia_config.json --output-dir /percorso/output
 
 ---
 
+## Creare un eseguibile Windows (EXE)
+
+Per distribuire l'app senza richiedere Python installato, puoi generare un `.exe` con **PyInstaller**.
+
+Da **PowerShell**, nella root del progetto:
+
+```powershell
+# EXE GUI (consigliato)
+./build_exe.ps1 -Clean
+
+# EXE con console (utile per usare --headless e vedere progresso su stdout)
+./build_exe.ps1 -Console -Clean
+```
+
+Output:
+- `dist/StarVisibility.exe` (GUI)
+- `dist/StarVisibility-Console.exe` (console)
+
+Nota: in versione EXE le cartelle runtime `.cache/`, `logs/`, `output/` vengono create **accanto all'eseguibile**.
+
+---
+
+## Creare un installer Windows
+
+Per distribuire l'app con un classico wizard di installazione (scorciatoia nel Menu Start, disinstallatore, ecc.), usa il flag `-Installer`:
+
+```powershell
+# Compila entrambi gli EXE + genera l'installer in un solo comando
+./build_exe.ps1 -Installer -Clean
+```
+
+Prerequisiti:
+- **Inno Setup 6** — installalo con `winget install --id JRSoftware.InnoSetup`  
+  (oppure scaricalo da [jrsoftware.org](https://jrsoftware.org/isinfo.php))
+
+Output: `dist/StarVisibility-Setup-1.0.0.exe`
+
+Il wizard di installazione:
+- Installa in `C:\Program Files\StarVisibility\` (o `AppData` se non si ha l'accesso admin)
+- Crea scorciatoie nel Menu Start (+ opzionale sul Desktop)
+- Registra il disinstallatore tramite "Aggiungi/Rimuovi programmi"
+- Include entrambi gli eseguibili, la configurazione default e il README
+
+---
+
 ## Gestione della configurazione
 
 La configurazione dell'applicazione è salvata in formato JSON. Dalla GUI:
