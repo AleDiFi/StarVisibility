@@ -11,6 +11,7 @@ bar can be updated without the scheduler knowing about Qt.
 
 from __future__ import annotations
 
+import gc
 import logging
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
@@ -33,6 +34,93 @@ from src.utils.logging_utils import get_logger
 log = get_logger("scheduler")
 
 ProgressCallback = Callable[[int, int, str], None]  # (current, total, message)
+
+
+def evaluate_carry_over_targets(
+    previous_targets: List[SelectedTarget],
+    current_slot: TimeSlot,
+    sector: SectorDefinition,
+    location: EarthLocation,
+    sample_minutes: int,
+    max_carry_over: int = 20,
+) -> List[SelectedTarget]:
+    """
+    Re-evaluate targets from the previous slot to see if they are still valid
+    for the current slot. Returns those that still satisfy constraints.
+    
+    Parameters
+    ----------
+    previous_targets : targets selected in the previous slot for this sector
+    current_slot : the new slot to evaluate against
+    sector : sector definition with constraints
+    location : EarthLocation for the observatory
+    sample_minutes : sampling interval for visibility computation
+    max_carry_over : maximum number of targets to carry over (default: 20)
+    
+    Returns
+    -------
+    List of SelectedTarget with carried_over_from_previous_slot=True
+    """
+    if not previous_targets:
+        return []
+    
+    # Limit the number of previous targets to avoid memory issues
+    # Keep the highest-ranked ones
+    targets_to_eval = sorted(
+        previous_targets, 
+        key=lambda t: t.ranking_score, 
+        reverse=True
+    )[:max_carry_over]
+    
+    # Extract stars from previous targets
+    stars = [t.star for t in targets_to_eval]
+    
+    # Sample times for the new slot
+    utc_times = sample_times_in_slot(
+        current_slot.start_utc, current_slot.end_utc, sample_minutes
+    )
+    
+    # Re-compute visibility for the new slot
+    vis_results = check_visibility_batch(stars, location, utc_times, sector)
+    
+    carry_over = []
+    for i, vis in enumerate(vis_results):
+        if not vis.in_sector:
+            # Star no longer satisfies azimuth or elevation constraints
+            continue
+        
+        prev_target = targets_to_eval[i]
+        
+        # Create a new SelectedTarget for the current slot with updated visibility
+        # Keep the same magnitude bin assignment
+        notes_parts = ["carried_over"]
+        if not vis.visible_full_slot:
+            notes_parts.append("partial_visibility")
+        
+        new_target = SelectedTarget(
+            star=prev_target.star,
+            slot=current_slot,
+            sector=sector,
+            mag_bin=prev_target.mag_bin,
+            alt_min_deg=vis.alt_min,
+            alt_mean_deg=vis.alt_mean,
+            az_mean_deg=vis.az_mean,
+            visible_full_slot=vis.visible_full_slot,
+            repeated_from_previous_slot=False,  # This is a carry-over, not a repeat
+            carried_over_from_previous_slot=True,
+            hotspot_distance_deg=sector.distance_to_hotspot(vis.az_mean, vis.alt_mean),
+            ranking_score=prev_target.ranking_score,  # Keep previous ranking
+            notes="; ".join(notes_parts),
+        )
+        carry_over.append(new_target)
+    
+    log.debug(
+        "Carry-over evaluation: %d previous → %d still valid for slot %s sector %s",
+        len(previous_targets), len(carry_over), 
+        current_slot.display_label, sector.name
+    )
+    
+    return carry_over
 
 
 def run_scheduler(
@@ -69,8 +157,10 @@ def run_scheduler(
     sample_minutes = config.visibility_sample_minutes
     band = config.catalog_band          # photometric band for magnitude filtering
 
-    # Track which star IDs were selected per sector in the previous slot
-    prev_selected: Dict[str, Set[str]] = {s.name: set() for s in enabled_sectors}
+    # Track which star IDs were selected per sector in the previous slot (for ranking penalty)
+    prev_selected_ids: Dict[str, Set[str]] = {s.name: set() for s in enabled_sectors}
+    # Track full SelectedTarget objects from previous slot (for carry-over evaluation)
+    prev_selected_targets: Dict[str, List[SelectedTarget]] = {s.name: [] for s in enabled_sectors}
 
     total_steps = len(slots) * len(enabled_sectors)
     step = 0
@@ -126,9 +216,28 @@ def run_scheduler(
                 magnitude_bins=config.magnitude_bins,
                 stars_with_results=pairs,
                 allow_global_reuse=config.allow_global_reuse,
-                previously_selected_ids=prev_selected[sector.name],
+                previously_selected_ids=prev_selected_ids[sector.name],
                 band=band,
             )
+
+            # Evaluate carry-over: re-check stars from previous slot
+            carry_over = evaluate_carry_over_targets(
+                previous_targets=prev_selected_targets[sector.name],
+                current_slot=slot,
+                sector=sector,
+                location=location,
+                sample_minutes=sample_minutes,
+            )
+            
+            # Add carry-over targets to the selection
+            # (these are in addition to the required targets per bin)
+            selected.extend(carry_over)
+            
+            if carry_over:
+                log.info(
+                    "Added %d carry-over targets for %s | %s",
+                    len(carry_over), slot.display_label, sector.name
+                )
 
             result.selected_targets.extend(selected)
             result.coverage.append(coverage)
@@ -144,13 +253,20 @@ def run_scheduler(
                 )
 
         # Update previous-slot state for the next slot
+        # Note: we only carry forward newly selected targets, not those that were
+        # already carry-overs, to avoid indefinite propagation
         for sector in enabled_sectors:
-            this_slot_ids = {
-                t.star.star_id
-                for t in result.selected_targets
-                if t.slot is slot and t.sector is sector
-            }
-            prev_selected[sector.name] = this_slot_ids
+            this_slot_targets = [
+                t for t in result.selected_targets
+                if t.slot is slot and t.sector is sector 
+                and not t.carried_over_from_previous_slot
+            ]
+            this_slot_ids = {t.star.star_id for t in this_slot_targets}
+            prev_selected_ids[sector.name] = this_slot_ids
+            prev_selected_targets[sector.name] = this_slot_targets
+        
+        # Force garbage collection after each slot to free memory
+        gc.collect()
 
     log.info(
         "Scheduling complete: %d targets selected, %d/%d slot-sectors fully covered.",

@@ -353,6 +353,7 @@ class SelectedTarget:
     az_mean_deg: float
     visible_full_slot: bool
     repeated_from_previous_slot: bool = False
+    carried_over_from_previous_slot: bool = False
     hotspot_distance_deg: Optional[float] = None
     ranking_score: float = 0.0
     notes: str = ""
@@ -394,6 +395,7 @@ class SelectedTarget:
             "az_mean_deg": round(self.az_mean_deg, 2),
             "visible_full_slot": "YES" if self.visible_full_slot else "NO",
             "repeated_from_previous_slot": "YES" if self.repeated_from_previous_slot else "NO",
+            "carried_over_from_previous_slot": "YES" if self.carried_over_from_previous_slot else "NO",
             "hotspot_distance_deg": (
                 round(self.hotspot_distance_deg, 2)
                 if self.hotspot_distance_deg is not None
