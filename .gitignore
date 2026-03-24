@@ -1,0 +1,7 @@
+# .gitignore file to specify files and directories to be ignored by Git
+.DS_Store
+venv/
+__pycache__/
+.venv/
+
+# Ignore any other files or directories you don't want to track
